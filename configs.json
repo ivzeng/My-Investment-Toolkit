@@ -1,0 +1,6 @@
+{
+    "interface": "BaseMenuInterface",
+    "trading_strategy": "SimpleTrade",
+    "account": "my_account_0",
+    "auto_trade": false
+}
