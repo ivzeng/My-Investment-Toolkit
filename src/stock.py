@@ -28,20 +28,31 @@ class Stock:
 
 
     def __str__(self) -> str:
-        return "Stock[" + self.label + "]:\n   Units Holding: " \
+        return "Stock[" + self.label + "]: {Units Holding: " \
             + display_value(self.holding) \
-            + "\n   Cost:" + display_value(self.cost) \
-            + "\n   Cost per Unit: " + display_value(self.unit_cost) \
-            + "\n   Trade History: " + display_value(self.log) + "\n"
+            + ", Cost per Unit: " + display_value(self.unit_cost) \
+            + ", Total Cost: " + display_value(self.cost) \
+            + "}"
     
-    def details(self, current: Current):
-        return self.__str__() \
-            + "   Current Price: " \
-            + display_value(self.get_current_price(current)) \
-            + "\n   Current Value: " \
-            + display_value(self.get_current_value(current)) \
-            + "\n   Net Profit: " \
-            + display_value(self.get_net_profit(current)) + "\n"
+    def details(self, current: Current, indents = 0):
+        return display("Stock[" + self.label + "]:", indents) + '\n' \
+            + display("Units Holding", indents+4, 20) \
+            + display(display_value(self.holding), 2, 8) + '\n' \
+            + display("Cost per Unit:", indents+4, 20) \
+            + display(display_value(self.unit_cost),
+                      2, 8) \
+            + display("Total Cost:", 4, 20) \
+            + display(display_value(self.cost), 2, 8) + '\n' \
+            + display("Current Price:", indents+4, 20) \
+            + display(display_value(self.get_current_price(current)),
+                      2, 8) \
+            + display("Current Value:", 4, 20) \
+            + display(display_value(self.get_current_value(current)),
+                      2, 8) + '\n' \
+            + display("Net Profit:", indents+4, 20)  \
+            + display(display_value(self.get_net_profit(current)),
+                      2, 8)  + '\n' \
+            + display("Trade History:", indents+4, 20) +  str(self.log) + '\n'
 
 
     @property

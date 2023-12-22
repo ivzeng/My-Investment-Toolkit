@@ -251,8 +251,7 @@ class BaseMenuInterface (Interface):
         print("Avaliable Comands:")
         for cmd in self.cur_location["cmds"]:
             cmd = self.cur_location["cmd_handler"][cmd]
-            print(" "*4, '{0: <25}'.format("[" + cmd[1] + "]"),
-                cmd[2], sep = "")
+            print(display("[" + cmd[1] + "]", 4, 25), cmd[2], sep = "")
     
             
     def show_account_details(self):
@@ -335,7 +334,7 @@ class BaseMenuInterface (Interface):
         if not self.account.contains_stock(stock_label):
             print("Your bundle doesn't contain ", stock_label,
                   ", Nothing is done.", sep = "")
-        if self.account.is_holding(stock_label):
+        elif self.account.is_holding(stock_label):
             print("Your account is still holding ", stock_label,
                   ", nothing is done.", sep = "")
         else:
@@ -387,7 +386,6 @@ class BaseMenuInterface (Interface):
         self.auto_trade = not self.auto_trade
         self.configs["auto_trade"] = self.auto_trade
         print("set auto_trade to", self.auto_trade)
-    
 
 
         

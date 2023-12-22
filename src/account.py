@@ -1,6 +1,7 @@
 from .stock import Stock
 from .current import Current
 from .trading_strategies import *
+from .helper_functions import *
 
 
 
@@ -26,16 +27,18 @@ class Account:
 
     def __str__(self) -> str:
         
-        return "Account[" + self.account_name + "]" \
-            + "\nAvailable Funds: " + str(self.budget)
+        return "Account[" + self.account_name + "]:\n" \
+            + display("Available Funds:", 4, 20) \
+            + display(str(self.budget), 2, 8)
     
     def details(self, current: Current):
-        return self.__str__() + "\n" + self.bundle_details(current) + "\n"
+        return self.__str__() + "\n"\
+                + display(self.bundle_details(current), 4, 20) + "\n"
     
     def bundle_details(self, current: Current) -> str:
         bundle_in_str = "List of Stocks:\n"
         for label in self.bundle.keys():
-            bundle_in_str +=  self.bundle[label].details(current) + '\n'
+            bundle_in_str +=  self.bundle[label].details(current, 8) + '\n'
         return bundle_in_str
 
     
