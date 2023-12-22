@@ -5,8 +5,10 @@
 
 import src.runner
 from src.runner import Runner
+from src.my_json import MyJson
 
 if __name__ == "__main__":
-    runner = Runner("configs.json")
+    my_json = MyJson()
+    runner = Runner("configs.json", my_json)
     runner.run()
     runner.save_data()

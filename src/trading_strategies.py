@@ -1,12 +1,18 @@
 from src.stock import Stock
 from src.account import Account
+import pandas as pd
+import os.path as osp
 
 # Type def
 #   Amount          -   positive number
 #   UnitCount       -   nonnegative integer  
-#   TSuggestion     -   [UnitCount, Amount]
+#   TSuggestion     -   [UnitCount, Amount] 
 
-trading_strategies_set  = {"BaseTradingStrategy", "SimpleTrade"}
+
+
+trading_strategies_set = {"BaseTradingStrategy", "SimpleReweight"}
+ 
+
 
 class BaseTradingStrategy:
     '''
@@ -16,27 +22,21 @@ class BaseTradingStrategy:
         
     '''
     
-    def __init__(self) -> None:
-        pass
-
-    def current_suggestions(
-            self, account:Account
-            ) -> list[list, list]:
-        '''
-        returns two list of trading suggestions (buy and sell), each sorted
-            by the priority
-        '''
+    def __init__(self, configs: dict) -> None:
         pass
 
 
-class SimpleTrade (BaseTradingStrategy):
+        
+
+
+class SimpleReweight(BaseTradingStrategy):
     '''
-    buy as much as possible if a stock have relatively low price;
-    sell all if the price of a stock increases by 50% of the difference
-        between its original price and the expected upper bound
+    suggest the proportion of budget investing on a stock based on 
+        prediction by a regression model between the expected price
+        changes in a number of days and the current price
     '''
     
-    def __init__(self) -> None:
-        super().__init__()
-    
+    def __init__(self, configs: dict) -> None:
+        super().__init__(configs)
+        self.days = configs["strategy_configs"]["SimpleReweight"]["days"]
     

@@ -1,9 +1,7 @@
-from src.stock import Stock
-from src.trading_strategies import *
+from .stock import Stock
+from .current import Current
+from .trading_strategies import *
 
-# Type def
-#   Label       -   string
-#   Amount      -   positive number
 
 
 class Account:
@@ -11,11 +9,14 @@ class Account:
     An object stores the account informations
 
     Fields:
-        budget      -   Amount;                 available funds
-        bundle      -   dict[Label, Stock]      set of stocks
+        budget      -   float;                  available funds
+        bundle      -   dict[str, Stock]        set of stocks
     '''
 
     def __init__(self, account_name: str, data: dict[str, float|dict]) -> None:
+        '''
+        Loads account data 
+        '''
         self.account_name = account_name
         self.budget = data.get("budget", 0)
         self.bundle: dict[str, Stock] = dict()
@@ -24,19 +25,25 @@ class Account:
             self.bundle[label] = Stock(label, data["bundle"][label])
 
     def __str__(self) -> str:
-        bundle_in_str = "List of Stocks:\n"
-        for label in self.bundle.keys():
-            bundle_in_str +=  str(self.bundle[label]) + '\n'
         
         return "Account[" + self.account_name + "]" \
-            + "\nAvailable Funds: " + str(self.budget) \
-            + "\nStock Value: " + str(self.current_stock_value) \
-            + "\nTotal Value: " + str(self.current_total_value) \
-            + "\nProfit:      " + str(self.current_profit) \
-            + "\n\n" + bundle_in_str
+            + "\nAvailable Funds: " + str(self.budget)
+    
+    def details(self, current: Current):
+        return self.__str__() + "\n" + self.bundle_details(current) + "\n"
+    
+    def bundle_details(self, current: Current) -> str:
+        bundle_in_str = "List of Stocks:\n"
+        for label in self.bundle.keys():
+            bundle_in_str +=  self.bundle[label].details(current) + '\n'
+        return bundle_in_str
+
     
     @property
     def in_dict(self) -> str:
+        '''
+        Converts the class into a dictionary
+        '''
         bundle_in_dict = dict()
         for label in self.bundle.keys():
             bundle_in_dict[label] = self.bundle[label].in_dict
@@ -44,33 +51,44 @@ class Account:
         return {"budget": self.budget,
                 "bundle": bundle_in_dict}
 
-
-
-    @property
-    def current_stock_value(self) -> float:
-        value = 0
-        for stock in self.bundle.values():
-            value += stock.current_value
-        return value
-    
-
-    @property
-    def current_total_value(self) -> float:
-        return self.budget + self.current_stock_value
-    
-
-    @property
-    def current_profit(self) -> float:
-        value = 0
-        for stock in self.bundle.values():
-            value += stock.gains
-        return value
-    
     def contains_stock(self, label: str) -> bool:
+        '''
+        Returns true iff stock with name label is in the bundle
+        '''
         return label in self.bundle.keys()
+    
+    def is_holding(self, label: str) -> bool:
+        '''
+        Returns true iff stock with name label is in the bundle
+        '''
+        return label in self.bundle.keys()\
+              and not self.bundle[label].is_empty
+
 
     def add_stock(self, label:str) -> None:
+        '''
+        Adds stock with name label into the bundle
+        '''
         if not self.contains_stock(label):
             self.bundle[label] = Stock(label)
 
+
+    def get_stock(self, label:str) -> Stock | None:
+        
+        return self.bundle.get(label, None)
+
+
+    def remove_stock(self, label:str):
+
+        self.bundle.pop(label)
+
+
+    def valid_change(self, units, unit_price, other_cost):
+
+        return self.budget - units * unit_price - other_cost >= 0
+    
+
+    def update_change(self, units, unit_price, other_cost):
+
+        self.budget -= units * unit_price + other_cost
 
