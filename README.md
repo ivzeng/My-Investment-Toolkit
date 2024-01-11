@@ -23,7 +23,7 @@ pandas==2.0.3
 Requests==2.31.0
 ```
 
-for linux environment:
+for ploting in linux environment:
 ```
 PyQt5==5.15.10
 PyQt5_sip==12.13.0
@@ -52,6 +52,11 @@ PyQt5_sip==12.13.0
 ####    Undo & remove a stock
 ![undo](./demo/undo.png)
 ![remove](./demo/remove.png)
+
+
+####    Set stock's code & request stock data from internet
+![set stock](./demo/set_stock.png)
+![request](./demo/request.png)
 
 
 ####    Plot stock price
