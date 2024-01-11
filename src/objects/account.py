@@ -1,7 +1,7 @@
 from .stock import Stock
 from .current import Current
-from .trading_strategies import *
-from .helper_functions import *
+from ..data_processing.trading_strategies import *
+from ..helper.display import *
 
 
 
@@ -53,6 +53,10 @@ class Account:
         
         return {"budget": self.budget,
                 "bundle": bundle_in_dict}
+    
+    @property
+    def bundle_size(self):
+        return len(self.bundle)
 
     def contains_stock(self, label: str) -> bool:
         '''
@@ -60,9 +64,17 @@ class Account:
         '''
         return label in self.bundle.keys()
     
+    def units_holding(self, label: str) -> int:
+        '''
+        Returns the number of units the account is holding
+        '''
+        if not self.contains_stock(label):
+            return 0
+        return self.get_stock(label).holding
+    
     def is_holding(self, label: str) -> bool:
         '''
-        Returns true iff stock with name label is in the bundle
+        Returns true iff the account is holding some units of the stock label
         '''
         return label in self.bundle.keys()\
               and not self.bundle[label].is_empty
@@ -79,6 +91,10 @@ class Account:
     def get_stock(self, label:str) -> Stock | None:
         
         return self.bundle.get(label, None)
+    
+    def get_stock_labels(self) -> list[str]:
+
+        return [stock_label for stock_label in self.bundle.keys()]
 
 
     def remove_stock(self, label:str):
@@ -86,7 +102,7 @@ class Account:
         self.bundle.pop(label)
 
 
-    def valid_change(self, units, unit_price, other_cost):
+    def valid_change(self, units, unit_price, other_cost) -> bool:
 
         return self.budget - units * unit_price - other_cost >= 0
     

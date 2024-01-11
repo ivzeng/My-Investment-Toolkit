@@ -17,10 +17,4 @@ def display(
     return ' '*indents + ('{0: '+ pos + str(width) + '}').format(content)
 
 
-print(display("hello"))
 
-def account_data_dir(account_name: str):
-    return "data/account_data/" + account_name + ".json"
-
-def stock_data_dir(stock_label: str):
-    return  "data/stock_data/" + stock_label + ".json"

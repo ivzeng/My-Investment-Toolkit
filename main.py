@@ -3,9 +3,8 @@
 ###     trading strategies.
 
 
-import src.runner
 from src.runner import Runner
-from src.my_json import MyJson
+from src.data_processing.my_json import MyJson
 
 if __name__ == "__main__":
     my_json = MyJson()

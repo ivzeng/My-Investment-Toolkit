@@ -1,10 +1,9 @@
 import json
-from . import trading_strategies
-from . import interface
-from src.interface import Interface
-from src.account import Account
-from src.trading_strategies import *
-from src.my_json import MyJson
+from .interface import interface
+from .interface.interface import Interface
+from .objects.account import Account
+from .data_processing.trading_strategies import *
+from .data_processing.my_json import MyJson
 
 
 class Runner:
@@ -22,11 +21,7 @@ class Runner:
         default_configs = {
             "interface": "BaseMenuInterface",
             "trading_strategy": "BaseTradingStrategy",
-            "account": "my_account_0",
-            "auto_trade": False,
-            "strategy_configs": {
-                "SimpleReweight": { "days": 50 }
-            }
+            "account": "my_account_0"
         }
         configs = my_json.load(config_dir, default_configs)
         interface_class = configs["interface"]
@@ -45,9 +40,7 @@ class Runner:
         '''
         Save account data and configuation
         '''
-        self.interface.save_account_data()
-        self.interface.save_setting(self.config_dir)
-        self.interface.save_current()
+        self.interface.save(self.config_dir)
     
 
 

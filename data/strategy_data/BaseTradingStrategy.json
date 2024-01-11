@@ -1,0 +1,10 @@
+{
+    "variables": {
+        "set_size": 100,
+        "min_trade_amount": 1000,
+        "buy_condition": 0.05,
+        "sell_condition": -0.05,
+        "buy_proportion": 0.5,
+        "sell_proportion": 0.5
+    }
+}

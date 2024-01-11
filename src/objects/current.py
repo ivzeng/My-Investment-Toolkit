@@ -8,8 +8,8 @@ class Current:
         contents    -   dict;       current information
     '''
 
-    def __init__(self, contents: dict) -> None:
-        self.contents = contents
+    def __init__(self) -> None:
+        self.contents = dict()
         self.contents.setdefault("price", dict())
 
     def get_contents(self) -> dict:

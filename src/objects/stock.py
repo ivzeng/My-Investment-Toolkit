@@ -1,5 +1,5 @@
 from .current import Current
-from .helper_functions import *
+from ..helper.display import *
 
 
 
@@ -66,6 +66,13 @@ class Stock:
             "log":              self.log,
             }
     
+
+    @property
+    def last_trade(self):
+        if len(self.log) == 0:
+            return None
+        return self.log[-1]
+    
     @property
     def is_empty(self):
         return self.holding == 0
@@ -112,13 +119,14 @@ class Stock:
 
 
     def update_change(
-            self, units: int, unit_price: float, other_cost: float
+            self, units: int, unit_price: float, other_cost: float,
+            date: str, stragety_name: str
             ) -> float:
         
         self.holding += units
         self.cost += units*unit_price + other_cost
         self.cost = round(self.cost,2)
-        self.log.append([units, unit_price, other_cost])
+        self.log.append([units, unit_price, other_cost, date, stragety_name])
     
     def undo_change(self) -> float:
         '''
@@ -133,7 +141,3 @@ class Stock:
         self.cost -= recent_change[0] * recent_change[1] + recent_change[2]
         return recent_change[0] * recent_change[1] + recent_change[2]
 
-
-'''
-
-'''
