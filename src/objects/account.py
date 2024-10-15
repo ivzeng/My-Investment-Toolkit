@@ -40,6 +40,16 @@ class Account:
         for label in self.bundle.keys():
             bundle_in_str +=  self.bundle[label].details(current, 8) + '\n'
         return bundle_in_str
+    
+    def account_value(self, stock_statistics: dict[str, StockStatistics], timepoint: int|str = -1) -> int|float:
+        value = self.budget
+        for label in self.bundle.keys():
+            if label in stock_statistics.keys():
+                value += self.bundle[label].holding * stock_statistics[label].get('close', timepoint)
+            else:
+                value += self.bundle[label].cost
+        return value
+
 
     
     @property

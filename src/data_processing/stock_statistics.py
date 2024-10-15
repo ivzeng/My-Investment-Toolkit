@@ -30,14 +30,14 @@ class StockStatistics:
 
 
     def get(self, statistics: str,
-                    beg: str|None = None, end: str|None = None
-                ) -> list|float|int|str:
+                beg: str|int = None, end: str|int|None = None
+                ) -> any:
         '''
         Gets data on a certain date or a list of data in a period
         '''
         data = self.daily_data
-        beg = self.get_index(data, beg, 0)
-        end = self.get_index(data, end, -1) + 1
+        beg = self.get_index(data, beg)
+        end = self.get_index(data, end)
         
         if statistics not in self.get_functions.keys():
             return self.get_functions['variate'](statistics, beg, end)
@@ -45,31 +45,40 @@ class StockStatistics:
             return self.get_functions[statistics](beg, end)
     
 
-    def get_index(self, data: pd.DataFrame, date:str|None, default = 0) -> int:
+    def get_index(self, data: pd.DataFrame = None, timepoint:str|int = 0) -> int:
         '''
-        Gets index by date;
-            returns default index if date is not in the dataframe
+        Gets the index corresponded to the date timepoint if timepoint is the string;
+        Gets the positive index if timepoint is an int;
+        Return n-1 if index >= the number of rows in the database (n), and 0 if index < 0. 
         '''
-        if date is None or len(data.loc[data['date'] == date]) == 0:
-            if default < 0:
-                default += len(data)
-                default = max(0, default)
-            idx = default
+        if data is None:
+            data = self.daily_data
+        if timepoint is None:
+            return None
+        if isinstance(timepoint, str):
+            idx = len(data.loc[data['date'] < timepoint])
         else:
-            idx = data.loc[data['date'] == date].index[0]
+            if timepoint < 0:
+                timepoint += len(data)
+                timepoint = max(0, timepoint)
+            idx = timepoint
+        idx = min(data.shape[0]-1, idx)
         return idx
     
+    def get_next_date(self, cur: str) -> str:
+        next_date = self.get('date', self.get_index(None, cur)+1)
+    
     def get_variate(
-            self, variate_name: str, beg: int, end: int|None = None
+            self, variate_name: str, beg: int|None, end: int|None = None
             ) -> list|float|int|str:
         '''
         Gets variates on by index or range 
         '''
-        beg = self.get_index(self.daily_data, None, beg)
+        if beg is None:
+            return None
         if end is None:
             return self.daily_data[variate_name][beg]
         else:
-            end = self.get_index(self.daily_data, None, end)
             return list(self.daily_data[variate_name][beg:end+1])
 
     def get_mean(self, beg: int, end: int):
@@ -77,16 +86,27 @@ class StockStatistics:
             'close', beg = beg, end = end))
 
     def get_min(self, beg: int, end: int):
-        return min(self.get_variate(
-            'low', beg = beg, end = end))
+        stat = self.get_variate('low', beg = beg, end = end-1)
+        stat.append(self.get('close', end-1))
+        return min(stat)
 
 
     def get_max(self, beg: int, end: int):
-        return max(self.get_variate(
-            'high', beg = beg, end = end))
+        stat = self.get_variate('high', beg = beg, end = end-1)
+        stat.append(self.get('close', end-1))
+        return max(stat)
     
 
 
-    def plot_attributes(self, attributes):
+    def plot_attributes(self, attributes, title: str = '', begin = 0, end = -1):
         self.daily_data.plot('datetime', attributes)
+        plt.title(title)
         plt.show()
+
+
+if __name__ == "__main__":
+    import my_json
+    json = my_json.MyJson()
+    data = json.load('./data/stock_data/a.json')
+    ss = StockStatistics(data)
+    print(ss.get_variate('date', 975))

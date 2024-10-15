@@ -48,9 +48,9 @@ class ConsoleIO:
 
     def output_message(self, message:str, type:None|str = None):
         if type is None:
-            self.output(message)
+            self.output(f'{message}')
         else:
-            self.output(type + ': ' + message)
+            self.output(f'{type}: {message}')
     
     def output_error(self, message:str):
         self.output_message(message, 'Error')

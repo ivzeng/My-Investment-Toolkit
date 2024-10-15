@@ -1,11 +1,5 @@
 {
     "interface": "BaseMenuInterface",
-    "trading_strategy": "SimpleReweight",
-    "account": "my_account_1",
-    "auto_trade": false,
-    "strategy_configs": {
-        "SimpleReweight": {
-            "days": 50
-        }
-    }
+    "trading_strategy": "BaseTradingStrategy",
+    "account": "new"
 }

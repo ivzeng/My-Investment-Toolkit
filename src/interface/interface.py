@@ -8,6 +8,7 @@ from ..data_processing.request_tools import *
 from ..io.io import *
 from ..helper.display import *
 from ..helper.directory import *
+import matplotlib.pyplot as plt
 #from ..objects.stock import Stock
 
 
@@ -25,12 +26,26 @@ class Interface:
     An object that handles processes
 
     Fields:
-        my_json             -   MyJson
-        configs             -   dict
-        running             -   bool
-        account_name        -   str
-        trading_straregy    -   BaseTradingStrategy
-        account             -   Account
+        my_json             : MyJson
+        configs             : dict
+        running             : bool
+        account_name        : str
+        trading_straregy    : BaseTradingStrategy
+        account             : Account
+        stock_info          : dict[str, list]
+        stocks_statistics   : dict[str, StockStatistics]
+    
+    Functions:
+        set_trading_strategy
+        set_account
+        load_stock_info
+        load_stock_data
+        save
+        save_account_data
+        save_setting
+        save_stock_info
+        save_stock_data
+
     '''
 
     def __init__(self, configs: dict, my_json: MyJson) -> None:
@@ -38,8 +53,6 @@ class Interface:
         '''
         Initialize account data and tranding strategy
         '''
-
-        self.io = ConsoleIO()
 
         self.my_json: MyJson    = my_json
 
@@ -127,8 +140,7 @@ class Interface:
         for stock_label in self.stocks_statistics:
             current.set_price(
                 stock_label,
-                self.stocks_statistics[stock_label].get_variate(
-                    'close', beg = -1))
+                self.stocks_statistics[stock_label].get('close', beg = -1))
         return current
 
 
@@ -146,14 +158,13 @@ class BaseMenuInterface (Interface):
     An base menu driven interface
 
     Fields:
-        auto_trade      -   bool
-        menus           -   dict(Label, Menu)
+        io              : ConsoleIO
+        menus           : dict(Label, Menu)
     '''
 
     def __init__(self, configs: dict, my_json: MyJson) -> None:
-        
+        self.io = ConsoleIO()
         super().__init__(configs, my_json)
-
         self.set_menus()
 
     
@@ -245,7 +256,7 @@ class BaseMenuInterface (Interface):
             self.apply_strategy, 'suggestion', 'get suggestion']
         
         main_menu_cmd_handler['simulate'] = [
-            self.apply_strategy, 'simulate', 'simulate trading with the strategy']
+            self.trade_simulation, 'simulate', 'simulate trading with the strategy']
 
         main_menu_cmd_handler['exit'] = [
             self.exit, 'exit', 'exit the program']
@@ -329,7 +340,7 @@ class BaseMenuInterface (Interface):
 
 
     def show_config_details(self):
-        self.message(str(self.configs))
+        self.message(self.configs)
 
 
 
@@ -427,11 +438,9 @@ class BaseMenuInterface (Interface):
         '''
         stock_label = self.get_stock_lable()
         if not self.account.contains_stock(stock_label):
-            self.warning('Your bundle does not contain ',
-                         stock_label, ', Nothing is done.')
+            self.warning(f'Your bundle does not contain {stock_label}, Nothing is done.')
         elif self.account.is_holding(stock_label):
-            self.warning('Your account is still holding ', stock_label,
-                  ', nothing is done')
+            self.warning(f'Your account is still holding {stock_label}, nothing is done.')
         else:
             self.account.remove_stock(stock_label)
 
@@ -443,7 +452,7 @@ class BaseMenuInterface (Interface):
         if stock_label is None:
             stock_label = self.get_stock_lable()
         else:
-            self.message('Setting information for [' + stock_label + ']:')
+            self.message(f'Setting information for [{stock_label}]:')
         stock_market, stock_code = self.get_stock_info()
         self.stock_info[stock_label] = [stock_market, stock_code]
 
@@ -474,9 +483,8 @@ class BaseMenuInterface (Interface):
 
 
         self.message(
-            'Attempting to query history for [' + stock_label + ': '\
-            + self.stock_info[stock_label][0] + '.'\
-            + self.stock_info[stock_label][1] + ']:')
+            f'Attempting to query history for [{stock_label}: '+
+            f'{self.stock_info[stock_label][0]}.{self.stock_info[stock_label][1]}]:')
         try:
             request_tool = self.get_request_tool(self.stock_info[stock_label][0])
             requested, daily = request_tool.request_daily(
@@ -490,8 +498,10 @@ class BaseMenuInterface (Interface):
             self.hint("Please check your internet, and verify your input")
             return
 
-        self.message("Successfully obtained data.")
+        self.message("Successfully obtained the data.")
         print(daily[:6])
+        print('...')
+        print(daily[-6:])
 
         self.stocks_statistics[stock_label] = StockStatistics(requested)
     
@@ -510,22 +520,23 @@ class BaseMenuInterface (Interface):
             self.warning('Stock data is not available. Failed to plot.')
             return 
 
-        self.stocks_statistics[stock_label].plot_attributes(['open', 'close'])
+        self.stocks_statistics[stock_label].plot_attributes(
+            ['open', 'close'], stock_label)
 
 
     def apply_strategy(self):
-        cur_moves = self.trading_strategy.current_moves(
+        triggered = self.trading_strategy.triggered_suggestions(
             self.stocks_statistics, self.account
         )
 
-        for trade in ['sell', 'buy']:
-            for stock in cur_moves[trade]:
-                self.message('Suggested trade: ' + str(stock))
-                reply = self.get_input('Update trade? (Y/n)')
-                if reply != 'n':
+        for trade_type in ['sell', 'buy']:
+            for trade in triggered[trade_type]:
+                self.message(f'Suggested trade: {trade[-1]}')
+                reply = self.get_input('Update trade? (N/n to reject)')
+                if reply != 'n' or reply == 'N':
                     self.update_trade(
-                        stock[0],
-                        self.stocks_statistics[stock[0]].get_variate(
+                        trade[0],
+                        self.stocks_statistics[trade[0]].get(
                             'date', -1),
                         self.trading_strategy.class_name)
         
@@ -538,6 +549,25 @@ class BaseMenuInterface (Interface):
             self.show_suggestion(stock_label, future_suggestions[stock_label])
 
     
+    def trade_simulation(self):
+        beg, end = self.get_period()
+        beg = f'{beg[:4]}-{beg[4:6]}-{beg[6:8]}'
+        end = f'{end[:4]}-{end[4:6]}-{end[6:8]}'
+        
+        stocks = self.get_stock_bundle()
+        self.message(f'Simulation with {self.trading_strategy.class_name} in period {beg} - {end}:')
+        simulation_result = self.trading_strategy.simulation(self.stocks_statistics, stocks, beg, end)
+        for hist in simulation_result['log']:
+            print(hist)
+        
+        dates = simulation_result['date']
+        for label in simulation_result['rate'].keys():
+            plt.plot(dates, simulation_result['rate'][label], label=label)
+        plt.legend(loc="upper left")
+        plt.xticks(rotation=90)
+        plt.show()
+        
+
 
 
     def exit(self):
@@ -553,6 +583,11 @@ class BaseMenuInterface (Interface):
         account_name = self.get_input('Account name: ')
         self.set_account(account_name)
         print('Switch to', account_name)
+
+    def get_stock_bundle(self):
+        stocks = self.get_input('Please enter a list of stock labels separated by spaces: ').split(' ')
+        return [stock for stock in stocks if stock in self.stocks_statistics.keys()]
+
 
     
     def switch_strategy(self):
@@ -633,19 +668,26 @@ class BaseMenuInterface (Interface):
 
     def get_stock_info(self) -> tuple[str, str]:
         market  = self.get_input(
-            "Martet (0: Shenzhen, 1: shangehai): ", indents = 2, width = 40)
+            "Martet (0: Shenzhen, 1: shanghai): ", indents = 2, width = 40)
         code    = self.get_input("Code:", indents = 2, width = 40)
         return market, code
     
     def get_period(self) -> tuple[str, str]:
-        self.hint("a date should be in form: yyyymmdd")
-        self.hint("empty input -> all")
+        self.message("Please enter the period (empty input -> all):")
+
         beg = self.get_input("Begin date:", indents = 2, width = 18)
-        end = self.get_input("End date:", indents = 2, width = 18)
         if beg == '':
-            beg = '0'
+            beg = '19000101'
+        while len(beg) != 8:
+            self.hint("a date should be in form: yyyymmdd")
+            beg = self.get_input("Begin date:", indents = 2, width = 18)
+
+        end = self.get_input("End date:", indents = 2, width = 18)
         if end == '':
             end = '20500101'
+        while len(beg) != 8:
+            self.hint("a date should be in form: yyyymmdd")
+            end = self.get_input("End date:", indents = 2, width = 18)
         return beg, end
         
 
