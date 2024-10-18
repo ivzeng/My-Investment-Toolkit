@@ -9,6 +9,13 @@ from ..io.io import *
 from ..helper.display import *
 from ..helper.directory import *
 import matplotlib.pyplot as plt
+import threading
+import time
+import tkinter as tk
+from tkinter import messagebox as mb
+import os
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "1"
+from pygame import mixer
 #from ..objects.stock import Stock
 
 
@@ -72,6 +79,10 @@ class Interface:
 
         self.load_stock_data()
 
+        self.auto = self.configs['auto']
+        self.auto_sep = self.configs['auto_sep']
+
+
 
     
     def set_trading_strategy(self, strategy_name:str):
@@ -83,7 +94,7 @@ class Interface:
     
     def set_account(self, account_name):
         '''
-        Loads account‘s data
+        Loads account's data
         '''
         self.configs['account'] = account_name
         account_dir = account_data_dir(account_name)
@@ -166,6 +177,9 @@ class BaseMenuInterface (Interface):
         self.io = ConsoleIO()
         super().__init__(configs, my_json)
         self.set_menus()
+        self.occupied = False
+        self.start_auto_update()
+
 
     
     def set_menus(self):
@@ -286,10 +300,12 @@ class BaseMenuInterface (Interface):
             self.switch_strategy, 's|strategy', 'change strategy']
         setting_cmd_handler['s'] = setting_cmd_handler['strategy']
 
+        setting_cmd_handler['auto'] = [
+            self.set_auto, 'auto', 'set auto update']
+
         setting_cmd_handler['back'] = [
             self.to_main, 'back', 'go back to the main page']
         
-
         self.cur_location = main_menu
 
 
@@ -299,6 +315,25 @@ class BaseMenuInterface (Interface):
         '''
         self.cur_location['func']()
         return self.running
+
+    def start_auto_update(self):
+        if self.auto:
+            update_thread = threading.Thread(target=self.auto_update, args=(), daemon=True)
+            update_thread.start()
+    
+    def auto_update(self):
+        time.sleep(10)
+        self.notify('Auto Update Started', f'Updating the stock data every {self.auto_sep} mimutes.')
+
+        while self.auto:
+            self.update_stocks_data(period=('19000101', '20500101'), verbose=False)
+            self.message(f'[{datetime.datetime.now()}] Stock data updated!')
+            triggered = self.trading_strategy.triggered_suggestions(
+                self.stocks_statistics, self.account
+            )
+            if (len(triggered['sell']) != 0 or len(triggered['buy']) != 0):
+                self.notify('Auto Update:', f'Trading point triggered!', 'sound/alarm2.mp3')
+            time.sleep(self.auto_sep*60)
 
     
 
@@ -321,7 +356,9 @@ class BaseMenuInterface (Interface):
 
         cmd = self.get_input()
         self.io.line_break()
+        self.occupied = True
         self.cur_location['cmd_handler'].get(cmd, [self.cmd_err])[0]()
+        self.occupied = False
         self.io.line_break()
 
 
@@ -458,15 +495,17 @@ class BaseMenuInterface (Interface):
 
 
 
-    def update_stocks_data(self) -> None:
+    def update_stocks_data(self, period = None, verbose = True) -> None:
         '''
         Requests or update data of all stocks in the account
         '''
-        period = self.get_period()
+        if period == None:
+            period = self.get_period()
         for stock_label in self.stock_info.keys():
-            self.update_stock_data(period, stock_label)
+            self.update_stock_data(period, stock_label, verbose)
 
-    def update_stock_data(self,  period = None, stock_label = None):
+
+    def update_stock_data(self,  period = None, stock_label = None, verbose = True):
         
         '''
         Requests or update stock data
@@ -481,10 +520,6 @@ class BaseMenuInterface (Interface):
         if stock_label not in self.stock_info.keys():
             self.set_stock_info(stock_label)
 
-
-        self.message(
-            f'Attempting to query history for [{stock_label}: '+
-            f'{self.stock_info[stock_label][0]}.{self.stock_info[stock_label][1]}]:')
         try:
             request_tool = self.get_request_tool(self.stock_info[stock_label][0])
             requested, daily = request_tool.request_daily(
@@ -497,11 +532,9 @@ class BaseMenuInterface (Interface):
             self.warning("Failed to obtain the data.")
             self.hint("Please check your internet, and verify your input")
             return
-
-        self.message("Successfully obtained the data.")
-        print(daily[:6])
-        print('...')
-        print(daily[-6:])
+        if verbose:
+            self.message(f"Successfully updated the stock [{stock_label}: " +
+                f"{self.stock_info[stock_label][0]}.{self.stock_info[stock_label][1]}]")
 
         self.stocks_statistics[stock_label] = StockStatistics(requested)
     
@@ -531,7 +564,7 @@ class BaseMenuInterface (Interface):
 
         for trade_type in ['sell', 'buy']:
             for trade in triggered[trade_type]:
-                self.message(f'Suggested trade: {trade[-1]}')
+                self.message(f'Suggested trade [{trade[0]}]: {trade[-1]}')
                 reply = self.get_input('Update trade? (N/n to reject)')
                 if reply != 'n' or reply == 'N':
                     self.update_trade(
@@ -559,6 +592,7 @@ class BaseMenuInterface (Interface):
         simulation_result = self.trading_strategy.simulation(self.stocks_statistics, stocks, beg, end)
         for hist in simulation_result['log']:
             print(hist)
+        print(f"trade count: {simulation_result['trade_counts']}")
         
         dates = simulation_result['date']
         for label in simulation_result['rate'].keys():
@@ -582,7 +616,7 @@ class BaseMenuInterface (Interface):
         self.save_account_data()
         account_name = self.get_input('Account name: ')
         self.set_account(account_name)
-        print('Switch to', account_name)
+        self.message(f'Switch to [{account_name}]')
 
     def get_stock_bundle(self):
         stocks = self.get_input('Please enter a list of stock labels separated by spaces: ').split(' ')
@@ -596,18 +630,19 @@ class BaseMenuInterface (Interface):
         '''
         nstrategy = self.get_input('Strategy name: ')
         if nstrategy not in trading_strategies_set:
-            print('Strategy not avaiable.')
-            print('Please input one of the following:', trading_strategies_set)
-            print('Nothing is done.')
+            self.message('Strategy not avaiable.')
+            self.message(f'Please input one of the following: {trading_strategies_set}')
+            self.message('Nothing is done.')
         else:
             self.set_trading_strategy(nstrategy)
-            print('Using', nstrategy, 'strategy.')
+            self.message(f'Using strategy {nstrategy}.')
     
 
-    def set_auto_trade(self):
-        self.auto_trade = not self.auto_trade
-        self.configs['auto_trade'] = self.auto_trade
-        print('set auto_trade to', self.auto_trade)
+    def set_auto(self):
+        self.auto = not self.auto
+        self.configs['auto'] = self.auto
+        self.message(f'set auto to {self.auto}.')
+        self.start_auto_update()
 
 
         
@@ -705,5 +740,21 @@ class BaseMenuInterface (Interface):
         return self.io.input_item(
             content, t = t, default = default, exception = exception,
             indents = indents, width = width, pos = pos)
+    
+
+    def notify(self, title: str, message:str, sound_dir:str = None):
+        '''
+        Pop a message box with sound notification (if provided).
+        '''
+        if sound_dir is None:
+            mb.showinfo(title, message)
+        else:
+            mixer.init()
+            sound = mixer.Sound(sound_dir)
+            sound.play()
+            mb.showinfo(title, message)
+            sound.fadeout(2000)
+            time.sleep(2)
+
     
 

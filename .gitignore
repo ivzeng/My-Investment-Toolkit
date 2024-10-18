@@ -1,0 +1,2 @@
+*.json
+!data/stock_data/info.json

@@ -19,9 +19,11 @@ class Runner:
         self.config_dir = config_dir
 
         default_configs = {
-            "interface": "BaseMenuInterface",
-            "trading_strategy": "BaseTradingStrategy",
-            "account": "my_account_0"
+            "interface":            "BaseMenuInterface",
+            "trading_strategy":     "TS1",
+            "account":              "my_account_0",
+            "auto":                 False,
+            "auto_sep":             2
         }
         configs = my_json.load(config_dir, default_configs)
         interface_class = configs["interface"]
