@@ -19,7 +19,8 @@ class Runner:
         self.config_dir = config_dir
 
         default_configs = {
-            "interface":            "BaseMenuInterface",
+            "interface":            "BaseMenuUI",
+            "notifier":             "MessageboxNotifier",
             "trading_strategy":     "TS1",
             "account":              "my_account_0",
             "auto":                 False,

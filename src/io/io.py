@@ -1,4 +1,6 @@
 from ..helper.display import *
+from ..helper.type import *
+
 
 class BaseIO:
     def __init__(self) -> None:
@@ -21,21 +23,14 @@ class ConsoleIO:
               pos: str = '<') -> str:
         return input(display(content, indents, width, pos))
 
-    def input_item(self, content:str, t:type, default = None, exception = False,
+    def input_item(self, content:str, t:type, default = None, exception = None,
                     indents: int = 0, width: int = None, pos: str = '<'):
         '''
         Gets input item; returns default if content = '' and returns exception
             if content cannot be converted to type t
         '''
-        try:
-            get = self.input(content, indents, width, pos)
-            item = t(get)
-        except:
-            if get == '':
-                return default
-            else:
-                return exception
-        return item
+        get = self.input(content, indents, width, pos)
+        return convert_to(get, t, default, exception)
     
     
     def output(self,
