@@ -1,7 +1,7 @@
 # This is my investment journal program.
 
 ### The program provides a simple user interface that allows you to
--   use a menu-based interface with easy IO operations,
+-   use a menu-based console interface and a menu-based GUI with easy IO operations
 -   handle multiple accounts
 -   record the account information and trading history
 -   update stock data from web APIs
