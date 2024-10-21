@@ -1,17 +1,14 @@
 # This is my investment journal program.
 
-### The program provides a simple user interface that allow you to
--   use a menu based interface for easy io operations
+### The program provides a simple user interface that allows you to
+-   use a menu-based interface with easy IO operations,
 -   handle multiple accounts
 -   record the account information and trading history
--   request stock data from internet
+-   update stock data from web APIs
 -   visualize the stock data as well as some other account information
--   obtain suggestion from various trading strategies
-
-### TODO:
--   enable simulations that test the effectiveness for each trading strategy
--   develop better strategies with statistical learning and forecasting
--   add improved user interfaces for better user experience (consider using ncurses or some GUI tools)
+-   obtain suggestions from various trading strategies
+-   get notified when a trade point is triggered
+-   evaluate the effectiveness of each strategy through simulations
 
 
 ###     Requirement:
@@ -20,10 +17,14 @@
 ```
 matplotlib==3.7.1
 pandas==2.0.3
-Requests==2.31.0
+pygame==2.6.1
+Requests==2.32.3
+scikit_learn==1.5.2
+tqdm==4.66.4
+xgboost==2.1.1
 ```
 
-for ploting in linux environment:
+for plotting in a Linux environment:
 ```
 PyQt5==5.15.10
 PyQt5_sip==12.13.0
@@ -39,7 +40,7 @@ PyQt5_sip==12.13.0
 ![help](./demo/help_1.png)
 ![help](./demo/help_2.png)
 
-####    View configuations and create/switch an account
+####    View configurations and create/switch an account
 ![setting](./demo/set_details.png)
 ![new account](./demo/new_account.png)
 
