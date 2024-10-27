@@ -4,8 +4,8 @@
 -   use a menu-based console interface and a menu-based GUI with easy IO operations
 -   handle multiple accounts
 -   record the account information and trading history
--   update stock data from web APIs
--   visualize the stock data as well as some other account information
+-   visualize the stock price data as well as some other account information
+-   obtain and update stocks' data (CN/US) in the background
 -   obtain suggestions from various trading strategies
 -   get notified when a trade point is triggered
 -   evaluate the effectiveness of each strategy through simulations
