@@ -191,6 +191,7 @@ class BaseMenuUI (Interface):
         super().__init__(configs, my_json)
         self.io = ConsoleIO()
         self.set_menus()
+        self.update_thread = None
         self.start_auto_update()
 
 
@@ -345,12 +346,12 @@ class BaseMenuUI (Interface):
         self.message("Saved account's, stock's, and config's data.")
 
     def start_auto_update(self):
-        if self.auto:
-            update_thread = threading.Thread(target=self.auto_update, args=(), daemon=True)
-            update_thread.start()
+        if self.auto and self.update_thread is None:
+            self.update_thread = threading.Thread(target=self.auto_update, args=(), daemon=True)
+            self.update_thread.start()
     
     def auto_update(self):
-        time.sleep(10)
+        time.sleep(5)
         self.notifier.notify(f'Auto Update Started: Updating the stock data every {self.auto_sep} mimutes.')
 
         while self.auto:
@@ -362,6 +363,8 @@ class BaseMenuUI (Interface):
             if (len(triggered['sell']) != 0 or len(triggered['buy']) != 0):
                 self.notifier.notify('Auto Update: Trading point triggered!', 'sound/alarm2.mp3')
             time.sleep(self.auto_sep*60)
+        
+        self.update_thread = None
 
     
 
@@ -470,6 +473,8 @@ class BaseMenuUI (Interface):
             return
         if date is None:
             date        = self.get_date()
+            if len(date) == 8:
+                date    = f'{date[:4]}-{date[4:6]}-{date[6:]}'
         
         if not self.account.contains_stock(stock_label):
             self.account.add_stock(stock_label)
@@ -574,6 +579,8 @@ class BaseMenuUI (Interface):
     def get_request_tool(self, market) -> BaseRequest:
         if market == '1' or market == '0':
             return CNRequest()
+        else:
+            return USRequest()
         return None
         
 
@@ -930,7 +937,6 @@ class MenuGUI(BaseMenuUI):
             else:
                 self.account.budget += amount
                 self.message(f'Transfer Complete!\nCurrent budget: {self.account.budget}')
-                self.hide_temp()
 
 
 
@@ -950,7 +956,7 @@ class MenuGUI(BaseMenuUI):
             else:
                 self.account.budget = amount
                 self.message(f'Budget set!\nCurrent budget: {self.account.budget}')
-                self.hide_temp()
+
                 
 
 
@@ -962,7 +968,7 @@ class MenuGUI(BaseMenuUI):
             self.submit_button()
         else:
             super().add_stock(stock_label)
-            self.hide_temp()
+
 
 
 
@@ -994,6 +1000,8 @@ class MenuGUI(BaseMenuUI):
             super().update_trade(stock_label, units, unit_price, cost, date, strategy_name)
             self.hide_temp()
 
+
+
             
     
     def undo_trade(self, stock_label = None):
@@ -1008,7 +1016,7 @@ class MenuGUI(BaseMenuUI):
 
         else:
             super().undo_trade(stock_label)
-            self.hide_temp()
+
 
 
 
@@ -1023,7 +1031,8 @@ class MenuGUI(BaseMenuUI):
             self.submit_button()
         else:
             super().remove_stock(stock_label)
-            self.hide_temp()
+
+
 
 
     def set_stock_info(self, stock_label = None, stock_market = None, stock_code = None):
@@ -1039,7 +1048,7 @@ class MenuGUI(BaseMenuUI):
             self.submit_button()
         else:
             super().set_stock_info(stock_label, stock_market, stock_code)
-            self.hide_temp()
+
 
 
 
@@ -1050,12 +1059,11 @@ class MenuGUI(BaseMenuUI):
         if beg is None:
             self.hide_temp()
             self.temp_fn = self.update_stocks_data
-            self.query_input('Begin date:', 'yyyymmdd')
-            self.query_input('End Date:', 'yyyymmdd')
+            self.query_input('Begin date (yyyymmdd):', '19000101')
+            self.query_input('End Date (yyyymmdd):', '20500101')
             self.submit_button()
         else:
             super().update_stocks_data(beg, end, verbose)
-            self.hide_temp()
 
 
 
@@ -1176,7 +1184,7 @@ class MenuGUI(BaseMenuUI):
         msg: tk.Text = self.set_component(scrolledtext.ScrolledText, 'msg1')
         self.set_size(msg, width=96, height=16)
         msg.config(wrap=tk.WORD)
-        msg.grid(column=0, row = 10, rowspan=8, columnspan=9)
+        msg.grid(column=0, row = 7, rowspan=3, columnspan=9)
         if mtype is None:
             mtype = 'None'
         msg.tag_config('warning', background= 'yellow', foreground="red")
@@ -1188,7 +1196,7 @@ class MenuGUI(BaseMenuUI):
         self.set_size(clear_button, width=8, height=2)
         self.set_text(clear_button, 'clear')
         self.set_button_fn(clear_button, fn=lambda: self.clear_text(msg))
-        clear_button.grid(column=9, row = 17, sticky='S')
+        clear_button.grid(column=9, row = 9, sticky='S')
     
     def warning(self, content):
         self.message(content, 'warning')
