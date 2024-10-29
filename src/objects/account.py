@@ -41,15 +41,21 @@ class Account:
             bundle_in_str +=  self.bundle[label].details(current, 8) + '\n'
         return bundle_in_str
     
-    def account_value(self, stock_statistics: dict[str, StockStatistics], timepoint: int|str = -1) -> int|float:
-        value = self.budget
+    def stock_value(self, label:str, stocks_statistics:dict[str, StockStatistics], timepoint: int|str = -1):
+        if label in stocks_statistics.keys():
+            return self.bundle[label].holding * stocks_statistics[label].get('close', timepoint)
+        else:
+            return self.bundle[label].cost
+    
+    def bundle_value(self, stocks_statistics: dict[str, StockStatistics], timepoint: int|str = -1) -> int|float:
+        value = 0
         for label in self.bundle.keys():
-            if label in stock_statistics.keys():
-                value += self.bundle[label].holding * stock_statistics[label].get('close', timepoint)
-            else:
-                value += self.bundle[label].cost
+            value += self.stock_value(label, stocks_statistics, timepoint)
         return value
 
+
+    def account_value(self, stocks_statistics: dict[str, StockStatistics], timepoint: int|str = -1) -> int|float:
+        return self.bundle_value(stocks_statistics, timepoint) + self.budget
 
     
     @property

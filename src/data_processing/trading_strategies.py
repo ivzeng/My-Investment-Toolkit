@@ -19,25 +19,42 @@ import datetime
 
 trading_strategies_set = {
     'BaseTradingStrategy',
-    'TS1',
-    'PositionSizing'}
+    'AU',
+    'KCHalf'}
  
 
 class BaseTradingStrategy:
     '''
-    Base trading strategy class
+    Base Trading Strategy Class
+
+    Fields:
+        variables           -   dict
 
     Functions:
         triggered_suggestions   ->  dict
         suggestions             ->  dict
         simulation              ->  dict
     '''
-    def __init__(self, _ = None) -> None:
-        pass
+    def __init__(self, my_json = None) -> None:
+        if my_json is None:
+            my_json = MyJson()
+        data = my_json.load(
+            strategy_data_dir(self.class_name),
+            {'variables': self.default_variables})
+        self.variables = data['variables']
 
     @property
     def class_name(self):
         return self.__class__.__name__
+    
+    @property
+    def default_variables(self) -> dict:
+        return {
+            'set_size':             100,
+            'min_trade_amount':     1000,
+            'simulation_budget':    100000
+        }
+    
 
     def triggered_suggestions(self, stocks_statistics: dict[str, StockStatistics],
                          account: Account, timepoint = -1) -> dict:
@@ -81,8 +98,8 @@ class BaseTradingStrategy:
         simulation_result['log'] = []
         simulation_result['value'] = dict()
         simulation_result['rate'] = dict()
-        stat_beg = '9'
-        stat_end = '0'
+        stat_beg = '20500101'
+        stat_end = '19900101'
         for stock in bundle:
             stat_beg = min(stat_beg, stocks_statistics[stock].get('date', 0))
             stat_end = max(stat_end, stocks_statistics[stock].get('date', -1))
@@ -98,27 +115,56 @@ class BaseTradingStrategy:
         for stock in bundle:
             simulation_result['value'][stock] = [1 for i in range(day_count)]    
             simulation_result['rate'][stock] = [1 for i in range(day_count)]    
+        
+        account_data = {
+            "budget": self.variables['simulation_budget'],
+            "bundle": {} 
+        }
+        temp_account = Account('temp_account', account_data)
+        for stock in bundle:
+            temp_account.add_stock(stock)        
 
+        for i in tqdm(range(len(simulation_result['date']))):
+            cur = f"{simulation_result['date'][i]}"[:10]
+            moves = self.triggered_suggestions(stocks_statistics, temp_account, cur)
+            traded = set()
+            while len(moves['sell']) != 0 or len(moves['buy']) != 0:
+                if len(moves['sell']) != 0:
+                    next_move = moves['sell'][0]
+                else:
+                    next_move = moves['buy'][0]
+                label, units, trigger, detail = next_move
+                temp_account.get_stock(label).update_change(units, trigger, 0, cur, self.class_name) 
+                temp_account.update_change(units, trigger, 0)
+                simulation_result['trade_counts'] += 1
+                simulation_result['log'].append(f'{cur}: {units} [{label}] at price {trigger}')
+                traded.add(label)
+                moves = self.triggered_suggestions(stocks_statistics, temp_account, cur)
+                moves['sell'] = [move for move in moves['sell'] if not move[0] in traded]
+                moves['buy'] = [move for move in moves['buy'] if not move[0] in traded]
+            simulation_result['value']['account'][i] = temp_account.account_value(stocks_statistics, cur)
+            for stock in bundle:
+                simulation_result['value'][stock][i] = stocks_statistics[stock].get('close', cur)
+
+            simulation_result['rate'] = dict()
+            base_val = simulation_result['value']['account'][0]
+            simulation_result['rate']['account'] = [value/base_val for value in simulation_result['value']['account']]
+            for stock in bundle:
+                base_val = simulation_result['value'][stock][0]
+                simulation_result['rate'][stock] = [value/base_val for value in simulation_result['value'][stock]]
         return simulation_result
         
 
 
 
-class TS1 (BaseTradingStrategy):
+class AU (BaseTradingStrategy):
     '''
-    An trading stragety that suggests to buy a1% of budget when the stock price
+    Averaging-Up: a strategy that suggests to buy a1% of budget when the stock price
         increases by b1%, and to sell a2% of holding if the stock price
         decreases by b2%
-    
-    Fields:
-        variables           -   dict
     '''
     def __init__(self, my_json: MyJson) -> None:
         super().__init__(my_json)
-        data = my_json.load(
-            strategy_data_dir(self.class_name),
-            {'variables': self.default_variables})
-        self.variables = data['variables']
         
     @property
     def default_variables(self) -> dict:
@@ -130,7 +176,7 @@ class TS1 (BaseTradingStrategy):
             'sell_condition':       -0.07,
             'buy_proportion':       0.5,
             'sell_proportion':      0.5,
-            'default_step':         10,
+            'default_step':         5,
         }
 
         
@@ -255,43 +301,6 @@ class TS1 (BaseTradingStrategy):
         Preforms a trade simulation
         '''
         simulation_result = super().simulation(stocks_statistics, bundle, beg, end)
-        
-        account_data = {
-            "budget": self.variables['simulation_budget'],
-            "bundle": {} 
-        }
-        temp_account = Account('temp_account', account_data)
-        for stock in bundle:
-            temp_account.add_stock(stock)        
-
-        for i in tqdm(range(len(simulation_result['date']))):
-            cur = f"{simulation_result['date'][i]}"[:10]
-            moves = self.triggered_suggestions(stocks_statistics, temp_account, cur)
-            traded = set()
-            while len(moves['sell']) != 0 or len(moves['buy']) != 0:
-                if len(moves['sell']) != 0:
-                    next_move = moves['sell'][0]
-                else:
-                    next_move = moves['buy'][0]
-                label, units, trigger, detail = next_move
-                temp_account.get_stock(label).update_change(units, trigger, 0, cur, self.class_name) 
-                temp_account.update_change(units, trigger, 0)
-                simulation_result['trade_counts'] += 1
-                simulation_result['log'].append(f'{cur}: {units} [{label}] at price {trigger}')
-                traded.add(label)
-                moves = self.triggered_suggestions(stocks_statistics, temp_account, cur)
-                moves['sell'] = [move for move in moves['sell'] if not move[0] in traded]
-                moves['buy'] = [move for move in moves['buy'] if not move[0] in traded]
-            simulation_result['value']['account'][i] = temp_account.account_value(stocks_statistics, cur)
-            for stock in bundle:
-                simulation_result['value'][stock][i] = stocks_statistics[stock].get('close', cur)
-
-            simulation_result['rate'] = dict()
-            base_val = simulation_result['value']['account'][0]
-            simulation_result['rate']['account'] = [value/base_val for value in simulation_result['value']['account']]
-            for stock in bundle:
-                base_val = simulation_result['value'][stock][0]
-                simulation_result['rate'][stock] = [value/base_val for value in simulation_result['value'][stock]]
         return simulation_result
 
                 
@@ -305,47 +314,26 @@ class TS1 (BaseTradingStrategy):
         
 
 
-class PositionSizing(BaseTradingStrategy):
+class KCHalf(BaseTradingStrategy):
     '''
-    An trading stragety that regularly adjust the size of the position based on factors:
-        current stock value, current budget, and model's prediction.
-    
-    Fields:
-        variables           -   dict
-        model               -  sklearn.BaseEstimator | xgboost.XGBModel
+    Kelly Criterion: A trading stragety that uses (Kelly percentage = 0.5) for position sizing.
     '''
 
     def __init__(self, my_json:MyJson) -> None:
         super().__init__(my_json)
-        data = my_json.load(
-            strategy_data_dir(self.class_name),
-            {'variables': self.default_variables()})
-        self.variables = data['variables']
     
     @property
     def default_variables(self) -> dict:
         return {
             'set_size':             100,
             'min_trade_amount':     1000,
-            'simulation_budget':    100000,
-            'model':                'LR'
+            'simulation_budget':    100000
         }
     
-    @property
-    def models(self) -> dict:
-        return {
-            'LR':           LogisticRegression, 
-            'XGB':          XGBClassifier,
-            'MLP':          MLPClassifier,
-        }
 
     @property
     def class_name(self):
         return self.__class__.__name__
-    
-    def set_model(self):
-        self.model = self.models[self.variables['model']]()
-        self.trained = False
 
 
     def triggered_suggestions(self, stocks_statistics: dict[str, StockStatistics],
@@ -359,8 +347,48 @@ class PositionSizing(BaseTradingStrategy):
         ) -> dict:
         suggestions = dict()
         for label in account.get_stock_labels():
-            suggestions[label] = []
+            suggestions[label] = self.target_suggestion(stocks_statistics, label, account, 0.5, timepoint)
         return suggestions
+    
+    def target_suggestion(
+            self, stocks_statistics: dict[str, StockStatistics],
+            stock_label: str, account: Account, kelly_pct = 0.5,
+            timepoint: str|None = -1):
+        
+        stock_statistics = stocks_statistics.get(stock_label, None)
+        if stock_statistics is None:
+            return []
+        
+        suggestions = list()
+        set_size            =   self.variables['set_size']
+        min_trade_amount    =   self.variables['min_trade_amount']
+        stock = account.get_stock(stock_label)
+        holding = stock.holding
+        budget = account.budget/max(1, account.bundle_size/1.2)
+        p = stock_statistics.get('open', timepoint)
+        init_units = ceil(min_trade_amount/p, set_size)
+
+        buy_units = init_units
+        if budget*kelly_pct > min_trade_amount:
+            # p_l < p -> buy_units > (kelly_pct*budget/p - (1-kelly_pct)*(holding-set_size))
+            buy_units = max(buy_units, ceil(kelly_pct*budget/p-(1-kelly_pct)*(holding), set_size))
+            if buy_units > init_units:
+                buy_units -= set_size
+            p_l = kelly_pct*budget/((1-kelly_pct)*(holding)+buy_units)
+            suggestions.append([f'Buy {buy_units} when price <= {p_l}', op.le, 'low', p_l, buy_units])
+
+        sell_units = init_units
+        if ((1-kelly_pct)*(holding)-sell_units > 0):
+            # p_h > p -> sell_units > -kelly_pct*budget/p + (1-kelly_pct)*(holding+set_size)
+            sell_units = max(sell_units, ceil(-kelly_pct*budget/p + (1-kelly_pct)*(holding), set_size))
+            if sell_units > init_units:
+                sell_units -= set_size
+            p_h = kelly_pct*budget/((1-kelly_pct)*(holding)-sell_units)
+            suggestions.append([f'Sell {sell_units} when price >= {p_h}', op.ge, 'high', p_h, -sell_units])
+        
+        return suggestions
+        
+        
     
     def simulation(
             self,
@@ -369,28 +397,6 @@ class PositionSizing(BaseTradingStrategy):
             beg:str, end: str
         ) -> pd.DataFrame:
 
-        simulation_result = dict()
-        simulation_result['bundle'] = bundle
-        simulation_result['trade_counts'] = 0
-        simulation_result['log'] = []
-        simulation_result['value'] = dict()
-        simulation_result['rate'] = dict()
-        stat_beg = '9'
-        stat_end = '0'
-        for stock in bundle:
-            stat_beg = min(stat_beg, stocks_statistics[stock].get('date', 0))
-            stat_end = max(stat_end, stocks_statistics[stock].get('date', -1))
-        beg = datetime.datetime.strptime(max(beg, stat_beg), f'%Y-%m-%d')
-        end = datetime.datetime.strptime(min(end, stat_end), f'%Y-%m-%d')
-        
-        day_count = (end-beg).days+1
-        simulation_result['date'] = [beg + datetime.timedelta(n) for n in range(day_count)]
-
-        simulation_result['value']['account'] = [1 for i in range(day_count)]
-        simulation_result['rate']['account'] = [1 for i in range(day_count)]
-
-        for stock in bundle:
-            simulation_result['value'][stock] = [1 for i in range(day_count)]    
-            simulation_result['rate'][stock] = [1 for i in range(day_count)]    
+        simulation_result = super().simulation(stocks_statistics, bundle,beg, end)
 
         return simulation_result
